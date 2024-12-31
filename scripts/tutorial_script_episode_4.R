@@ -37,3 +37,24 @@ colData(se) |>
     theme_bw() +
     labs(x = "Sample", y = "Total counts in millions") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+#Converting the counts from se to a matrix
+counts_matrix <- as.matrix(assay(se))
+assay(se) <- counts_matrix
+
+#Convert the SummarizedExperiment object to a DEseqDataSet
+dds <- DESeqDataSet(se, design = ~ sex + time)
+
+#Getting the size factors for each sample
+dds <- estimateSizeFactors(dds)
+
+# Plot the size factors against library size
+# and look for any patterns by group:
+ggplot(data.frame(libSize = colSums(assay(dds)),
+                  sizeFactor = sizeFactors(dds),
+                  Group = dds$Group),
+                  aes(x = libSize, y = sizeFactor, col = Group)) +
+                    geom_point(size = 5) +
+                    theme_bw() +
+                    labs(x = "Library Size", y = "Size Factor")
+
