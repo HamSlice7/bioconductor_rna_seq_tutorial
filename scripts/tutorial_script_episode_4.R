@@ -58,3 +58,42 @@ ggplot(data.frame(libSize = colSums(assay(dds)),
                     theme_bw() +
                     labs(x = "Library Size", y = "Size Factor")
 
+#Plotting row standard deviation vs row means (row = counts of a gene across the samples)
+meanSdPlot(assay(dds), ranks = FALSE)
+
+#Applying variance stabilizing transformation to the count data
+vsd <- vst(dds, blind = TRUE)
+
+#Plotting row standard deviation vs row means for the transformed count data
+meanSdPlot(assay(vsd), blind = TRUE)
+
+#Creating a distance matrix from the counts matrix. Calculates Euclidean distance between the rows.
+dst <- dist(t(assay(vsd)))
+
+colours <- colorRampPalette(brewer.pal(9, "Blues"))(225)
+
+Heatmap(
+  as.matrix(dst),
+  col = colours,
+  name = "Euclidean\ndistance",
+  cluster_rows = hclust(dst),
+  cluster_columns = hclust(dst),
+  bottom_annotation = columnAnnotation(
+    sex = vsd$sex,
+    time = vsd$time,
+    col = list(sex = c(Female = "red", Male = "blue"),
+               time = c(Day0 = "yellow", Day4 = "forestgreen", Day8 = "purple"))
+  ))
+
+#Creating a PCA plot
+pcaData <- plotPCA(vsd, intgroup = c("sex", "time"),returnData = TRUE)
+
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+ggplot(pcaData, aes(x = PC1, y = PC2)) +
+  geom_point(aes(color = sex, shape = time), size = 5) +
+  theme_minimal() +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed() +
+  scale_color_manual(values = c(Male = "blue", Female = "red"))
