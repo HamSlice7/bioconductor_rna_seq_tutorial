@@ -18,4 +18,39 @@ vd <- VisualizeDesign(sampleData = meta, designFormula = ~  tissue + time + sex)
 
 vd$cooccurrenceplots
 
+vd$designmatrix
 
+#Subsetting data to only include non-infected (Day 0) and spinal cord tissue 
+meta_noninf_spc <- meta %>%
+  filter(time == "Day0" & tissue == "Spinalcord")
+
+## Use ExploreModelMatrix to create a design matrix and visualizations, given 
+## the desired design formula
+vd <- VisualizeDesign(sampleData = meta_noninf_spc, designFormula = ~ sex)
+
+vd$designmatrix
+
+vd$plotlist
+
+#We can also generate a model matrix like this
+model.matrix(~sex, data = meta_noninf_spc)
+
+#Subsetting data to include all day0 rows
+meta_noninf <- meta %>%
+  filter(time == "Day0")
+
+
+vd <- VisualizeDesign(sampleData = meta_noninf, designFormula = ~ sex + tissue)
+
+vd$designmatrix
+
+vd$plotlist
+
+## Define a design including an interaction term
+## Note that ~ sex * tissue is equivalent to 
+## ~ sex + tissue + sex:tissue
+vd <- VisualizeDesign(sampleData = meta_noninf, designFormula = ~ sex * tissue)
+
+vd$designmatrix
+
+vd$plotlist
