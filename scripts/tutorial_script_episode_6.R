@@ -54,3 +54,14 @@ vd <- VisualizeDesign(sampleData = meta_noninf, designFormula = ~ sex * tissue)
 vd$designmatrix
 
 vd$plotlist
+
+
+#Combining sex and tissue variables
+meta_noninf <- meta %>% 
+  filter(time == "Day0")
+meta_noninf$sex_tissue <- paste0(meta_noninf$sex, "_", meta_noninf$tissue)
+meta_noninf
+
+vd <- VisualizeDesign(sampleData = meta_noninf, designFormula = ~ 0 + sex_tissue)
+vd$designmatrix
+vd$plotlist
