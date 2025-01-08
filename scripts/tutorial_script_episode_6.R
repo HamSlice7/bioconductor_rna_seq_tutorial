@@ -98,3 +98,92 @@ vd <- VisualizeDesign(sampleData = meta_fem_day_04 %>%
                         select(time, tissue, mouse), designMatrix = design)
 vd$designmatrix
 vd$plotlist
+
+#Repeating DE analysis from last tutorial
+se <- readRDS("data/GSE96870_se.rds")
+se <- se[rowSums(assay(se)) > 5, ]
+assay(se) <- as.matrix(assay(se))
+dds <- DESeqDataSet(se, design = ~ sex + time)
+dds <- DESeq(dds)
+
+#Listing the attributes of the dds object
+attributes(dds)
+
+#Accessing the model matrix of the DE analysis
+attr(dds, "modelMatrix")
+
+#accessing column names (independent variables) of the design matrix
+resultsNames(dds)
+
+#Visualizing the experimental design
+vd <- VisualizeDesign(sampleData = colData(dds)[,c("sex", "time")], designMatrix = attr(dds, "modelMatrix"), flipCoordFitted = TRUE)
+vd$plotlist
+
+#Extracting DE analysis for day0 vs day8
+resultsNames(dds) #coefficients from the design matrix
+resTime <- results(dds, contrast = c("time", "Day8", "Day0"))
+resTimeNum <- results(dds, contrast = c(0,0,0,1)) #alternate way of specifying day0 vs day 8 (log chnage represented by fourth coefficient)
+
+#looking at results and seeing that resTime and resTimeNum are the same
+summary(resTime)
+summary(resTimeNum)
+
+##LogFc
+plot(resTime$log2FoldChange, resTimeNum$log2FoldChange)
+abline
+
+##-log10(p-value)
+plot(-log10(resTime$pvalue), -log10(resTimeNum$pvalue))
+abline(0,1)
+
+#Redoing the analysis but allow an interaction between sex and time
+se <- readRDS("data/GSE96870_se.rds")
+se <- se[rowSums(assay(se)) > 5, ]
+assay(se) <- as.matrix(assay(se))
+dds <- DESeqDataSet(se, design = ~ sex * time)
+dds <- DESeq(dds)
+
+attr(dds, "modelMatrix")
+
+#looking at the experimental design
+vd <- VisualizeDesign(sampleData = colData(dds)[,c("sex", "time")], designMatrix = attr(dds, "modelMatrix"), flipCoordFitted = TRUE)
+vd$plotlist
+
+## Day8 vs Day0, female
+resTimeFemale <- results(dds, contrast = c("time", "Day8", "Day0"))
+summary(resTimeFemale)
+
+## Interaction effect (difference in Day8-Day0 effect between Male and Female)
+resTimeInt <- results(dds, name = "sexMale.timeDay8")
+summary(resTimeInt)
+
+
+###Let’s try to fit this model with the second approach mentioned above, namely to create a single factor.
+se <- readRDS("data/GSE96870_se.rds")
+se <- se[rowSums(assay(se)) > 5, ]
+se$sex_time <- paste0(se$sex, "_", se$time) #creating a sex+time column for the sample data
+assay(se) <- as.matrix(assay(se))
+dds <- DESeqDataSet(se, design = ~ 0 + sex_time)
+dds <- DESeq(dds)
+
+#looking at the model matrix to look st the independent variables and the samples
+attr(dds, "modelMatrix")
+
+#looking at the experimental design
+vd <- VisualizeDesign(sampleData = colData(dds)[,c("sex", "time")], designMatrix = attr(dds, "modelMatrix"), flipCoordFitted = TRUE)
+vd$plotlist
+
+##Day8 vs Day0, female
+resTimeFemaleSingle <- results(dds, contrast = c("sex_time", "Female_Day8", "Female_Day0"))
+
+##Interaction effect(difference in Day8-Day0 effect between Male and Female)
+resultsNames(dds)
+resTimeIntSingle <- results(dds, contrast = c(1,0,-1,-1,0,1))
+
+#Same results - female day 0 vs day 8
+summary(resTimeFemale)
+summary(resTimeFemaleSingle)
+
+#Same results - test for the difference in the Day8-Day0 effect between Male and Female
+summary(resTimeInt)
+summary(resTimeIntSingle)
