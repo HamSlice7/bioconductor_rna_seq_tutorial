@@ -135,3 +135,112 @@ head(gene_sets)
 resTimeHallmark <- enricher(gene = timeDEgenes, TERM2GENE = gene_sets[,c("gs_name", "gene_symbol")], pvalueCutoff = 1, qvalueCutoff = 1)
 resTimeHallmarkTable <- as.data.frame(resTimeHallmark)
 head(resTimeHallmarkTable)
+
+
+#Regenerate resTimeGO
+resTimeGO <- enrichGO(gene = timeDEgenes, keyType = "SYMBOL", ont = "BP", OrgDb = org.Mm.eg.db, pvalueCutoff = 1, qvalueCutoff = 1)
+resTimeGoTable <- as.data.frame(resTimeGO)
+head(resTimeGoTable)
+
+#using barplot() to generate plot for 20 significant gene sets
+barplot(resTimeGO, showCategory = 20)
+
+#Using dotplot() to generate plot for 20 significant gene sets
+dotplot(resTimeGO, showCategory = 20)
+
+#Creating 2x2 contingency table
+n_11 <- resTimeGoTable$Count #Number of DE genes in gene set
+n_10 <- length(intersect(resTimeGO@gene, resTimeGO@universe)) #Total number of DE genes
+n_01 <- as.numeric(gsub("/.*$", "", resTimeGoTable$BgRatio))#Total number of genes in the gene sets
+n <- length(resTimeGO@universe) #Total number of genes
+
+#Creating a DE_ratio and GS_size column in the resTimeGoTable
+resTimeGoTable$DE_Ratio <- n_11/n_01 #Number of DE genes in each gene set / total number of genes in each gene set
+resTimeGoTable$GS_size <- n_01 #size of the gene sets
+
+#log2 fold enrichment
+resTimeGoTable$Log2enrichment <- log((n_11/n_10)/(n_01/n))
+
+#Z-score
+hyper_mean <- n_01*n_10/n #hypergeometric mean
+n_02 <- n - n_01 #number of genes in universe - number of genes in each gene set
+n_20 <- n - n_10 # number of genes in universe - total number of DE genes
+hyper_var = n_01*n_10/n * n_20*n_02/n/(n-1) #hypergeometric variance
+resTimeGoTable$zscore <- (n_11 - hyper_mean)/sqrt(hyper_var)
+
+#plotting log2enrichment for the first 10 significant gene sets
+ggplot(data = resTimeGoTable[1:10,], aes(x = Log2enrichment, y = factor(Description, levels = rev(Description)), fill = DE_Ratio)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(x = Log2enrichment, 
+                label = sprintf("%.2e", p.adjust)), hjust = 1, col = "white") +
+  ylab("")
+
+#plotting z-score and the first 10 significant gene sets
+ggplot(resTimeGoTable[1:10, ], 
+       aes(x = zscore, y = factor(Description, levels = rev(Description)), 
+           col = DE_Ratio, size = Count)) +
+  geom_point() +
+  ylab("")
+
+#Volcano plot
+ggplot(resTimeGoTable, 
+       aes(x = Log2enrichment, y = -log10(p.adjust), 
+           color = DE_Ratio, size = GS_size)) +
+  geom_point() +
+  geom_hline(yintercept = -log10(0.01), lty = 2, col = "#444444") +
+  geom_vline(xintercept = 1.5, lty = 2, col = "#444444")
+
+##ORA of down and up regulated genes seperatly 
+
+# up-regulated genes
+timeDEup <- as.data.frame(subset(resTime, padj < 0.05 & log2FoldChange > log2(1.5)))
+timeDEupGenes <- rownames(timeDEup)
+
+resTimeGOup = enrichGO(gene = timeDEupGenes, 
+                       keyType = "SYMBOL",
+                       ont = "BP", 
+                       OrgDb = org.Mm.eg.db,
+                       universe = rownames(se),
+                       pvalueCutoff = 1,
+                       qvalueCutoff = 1)
+resTimeGOupTable = as.data.frame(resTimeGOup)
+n_11 = resTimeGOupTable$Count
+n_10 = length(intersect(resTimeGOup@gene, resTimeGOup@universe))
+n_01 = as.numeric(gsub("/.*$", "", resTimeGOupTable$BgRatio))
+n = length(resTimeGOup@universe)
+resTimeGOupTable$log2_Enrichment = log( (n_11/n_10)/(n_01/n) )
+
+# down-regulated genes
+timeDEdown <- as.data.frame(subset(resTime, padj < 0.05 & log2FoldChange < -log2(1.5)))
+timeDEdownGenes <- rownames(timeDEdown)
+
+resTimeGOdown = enrichGO(gene = timeDEdownGenes, 
+                         keyType = "SYMBOL",
+                         ont = "BP", 
+                         OrgDb = org.Mm.eg.db,
+                         universe = rownames(se),
+                         pvalueCutoff = 1,
+                         qvalueCutoff = 1)
+resTimeGOdownTable = as.data.frame(resTimeGOdown)
+n_11 = resTimeGOdownTable$Count
+n_10 = length(intersect(resTimeGOdown@gene, resTimeGOdown@universe))
+n_01 = as.numeric(gsub("/.*$", "", resTimeGOdownTable$BgRatio))
+n = length(resTimeGOdown@universe)
+resTimeGOdownTable$log2_Enrichment = log( (n_11/n_10)/(n_01/n) )
+
+#plotting the first five significant up and down regulated gene sets
+direction = c(rep("up", 5), rep("down", 5))
+ggplot(rbind(resTimeGOupTable[1:5, ],
+             resTimeGOdownTable[1:5, ]),
+       aes(x = log2_Enrichment, y = factor(Description, levels = rev(Description)), 
+           fill = direction)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("up" = "red", "down" = "darkgreen")) +
+  geom_text(aes(x = log2_Enrichment, 
+                label = sprintf("%.2e", p.adjust)), hjust = 1, col = "white") +
+  ylab("")
+
+
+#simplify GO
+GO_ID <- resTimeGoTable$ID[resTimeGoTable$p.adjust < 0.05]
+pdf(simplifyGO(GO_ID))
